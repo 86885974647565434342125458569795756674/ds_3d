@@ -29,6 +29,7 @@ def pre_pdb(local_rank, port, addr='127.0.0.1'):
     handle = client.makefile('rw')
     return handle
 
+
 def cifar_trainset(local_rank, dl_path='/tmp/cifar10-data'):
     transform = transforms.Compose([
         transforms.Resize(256),
@@ -86,6 +87,12 @@ def train_base(args):
     net = AlexNet(num_classes=10)
 
     trainset = cifar_trainset(args.local_rank)
+    
+    '''cyy   
+    if args.local_rank==0:
+        handle = pre_pdb(args.local_rank,16000)
+        pdb.Pdb(stdin=handle,stdout=handle).set_trace()
+    '''
 
     engine, _, dataloader, __ = deepspeed.initialize(
         args=args,
@@ -103,6 +110,7 @@ def train_base(args):
 
     total_steps = args.steps * engine.gradient_accumulation_steps()
     step = 0
+
     for micro_step in range(total_steps):
         batch = next(data_iter)
         inputs = batch[0].to(engine.device)
@@ -141,6 +149,14 @@ def train_pipe(args, part='parameters'):
     # VGG also works :-)
     #net = vgg19(num_classes=10)
     net = AlexNet(num_classes=10)
+
+
+    """cyy"""
+    if args.local_rank==0:
+        handle = pre_pdb(args.local_rank,16000)
+        pdb.Pdb(stdin=handle,stdout=handle).set_trace()
+    """cyy"""
+
     net = PipelineModule(layers=join_layers(net),
                          loss_fn=torch.nn.CrossEntropyLoss(),
                          num_stages=args.pipeline_parallel_size,
@@ -161,10 +177,11 @@ def train_pipe(args, part='parameters'):
 
 if __name__ == '__main__':
     args = get_args()
-
-    handle = pre_pdb(args.local_rank,16000)
-    pdb.Pdb(stdin=handle,stdout=handle).set_trace()
-
+    '''
+    if args.local_rank==0:
+        handle = pre_pdb(args.local_rank,16000)
+        pdb.Pdb(stdin=handle,stdout=handle).set_trace()
+    '''
     deepspeed.init_distributed(dist_backend=args.backend)
     args.local_rank = int(os.environ['LOCAL_RANK'])
     torch.cuda.set_device(args.local_rank)
